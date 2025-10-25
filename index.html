@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>iMinister Map</title>
+  <link rel="stylesheet" href="style.css">
+
+  <!-- Google Maps (async load) -->
+  <script async defer
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyADtj-pf2vXPtVbsito5U5AFwmKhJnWX18&callback=initMap">
+  </script>
+
+  <!-- Firebase SDK + main script -->
+  <script type="module" src="script.js"></script>
+</head>
+<body>
+  <div id="map"></div>
+  <button id="addPinBtn">+</button>
+  <div id="message"></div>
+
+  <!-- Modal -->
+  <div id="pinModal">
+    <form id="pinForm">
+      <h2>Add New Pin</h2>
+
+      <label for="pinName">Name</label>
+      <input type="text" id="pinName" required>
+
+      <label for="pinAddress">Address (optional)</label>
+      <input type="text" id="pinAddress" placeholder="Enter an address">
+
+      <label for="pinNeeded">What's Needed?</label>
+      <input type="text" id="pinNeeded">
+
+      <label for="pinDate">Date</label>
+      <input type="date" id="pinDate">
+
+      <label for="pinTime">Time</label>
+      <input type="time" id="pinTime">
+
+      <button type="submit">Add Pin</button>
+    </form>
+  </div>
+</body>
+</html>
