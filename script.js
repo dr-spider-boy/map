@@ -1,0 +1,174 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+
+// --- Firebase setup ---
+const firebaseConfig = {
+  apiKey: "AIzaSyC6ZBvAd5WE2dQ_iVdfVuF_uYq546B8QgI",
+  authDomain: "iminister-map.firebaseapp.com",
+  projectId: "iminister-map",
+  storageBucket: "iminister-map.firebasestorage.app",
+  messagingSenderId: "986772471255",
+  appId: "1:986772471255:web:a3e3d5ec49f61a27815f92",
+  measurementId: "G-TXWMLGM1G7"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+let map, geocoder;
+let addPinMode = false;
+let tempLatLng = null;
+let markerPreview = null;
+
+const addPinBtn = document.getElementById("addPinBtn");
+const messageDiv = document.getElementById("message");
+const pinModal = document.getElementById("pinModal");
+const pinForm = document.getElementById("pinForm");
+
+function showMessage(text, duration = 2000) {
+  messageDiv.textContent = text;
+  messageDiv.style.opacity = 1;
+  setTimeout(() => messageDiv.style.opacity = 0, duration);
+}
+
+// --- Main Map Init ---
+window.initMap = async function () {
+  map = new google.maps.Map(document.getElementById("map"), {
+    zoom: 13,
+    center: { lat: 43.816, lng: -111.784 }
+  });
+
+  geocoder = new google.maps.Geocoder();
+
+  // Load existing pins
+  try {
+    const snapshot = await getDocs(collection(db, "pins"));
+    snapshot.forEach(doc => addMarker(map, doc.data()));
+  } catch (error) {
+    console.error("Error loading pins:", error);
+    showMessage("Error loading pins", 3000);
+  }
+
+  // Add pin mode toggle
+  addPinBtn.addEventListener("click", () => {
+    addPinMode = true;
+    addPinBtn.style.backgroundColor = "#0B5ED7";
+    showMessage("Click the map or enter an address to add a pin", 3000);
+    pinModal.style.display = "flex";
+  });
+
+  // Map click
+  map.addListener("click", (event) => {
+    if (!addPinMode) return;
+    tempLatLng = event.latLng;
+    previewPin();
+  });
+
+  // Handle form submit
+  pinForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = document.getElementById("pinName").value;
+    const needed = document.getElementById("pinNeeded").value;
+    const date = document.getElementById("pinDate").value;
+    const time = document.getElementById("pinTime").value;
+    const address = document.getElementById("pinAddress").value;
+
+    if (address && !tempLatLng) {
+      await geocodeAddress(address);
+    }
+
+    if (!name || !tempLatLng) {
+      alert("Please select a location or enter a valid address.");
+      return;
+    }
+
+    const newPin = {
+      name,
+      needed,
+      date,
+      time,
+      lat: tempLatLng.lat(),
+      lng: tempLatLng.lng()
+    };
+
+    try {
+      await addDoc(collection(db, "pins"), newPin);
+      addMarker(map, newPin);
+      showMessage("Pin added successfully!", 2000);
+    } catch (error) {
+      console.error("Error adding pin:", error);
+      showMessage("Error adding pin", 2500);
+    }
+
+    // Reset
+    addPinMode = false;
+    addPinBtn.style.backgroundColor = "#4285F4";
+    pinModal.style.display = "none";
+    pinForm.reset();
+    tempLatLng = null;
+    if (markerPreview) markerPreview.setMap(null);
+  });
+
+  // Close modal on outside click
+  pinModal.addEventListener("click", (e) => {
+    if (e.target === pinModal) {
+      pinModal.style.display = "none";
+      addPinMode = false;
+      addPinBtn.style.backgroundColor = "#4285F4";
+      pinForm.reset();
+      tempLatLng = null;
+      if (markerPreview) markerPreview.setMap(null);
+    }
+  });
+};
+
+// --- Geocode function ---
+async function geocodeAddress(address) {
+  return new Promise((resolve) => {
+    geocoder.geocode({ address: address }, (results, status) => {
+      if (status === "OK" && results[0]) {
+        const loc = results[0].geometry.location;
+        map.setCenter(loc);
+        tempLatLng = loc;
+        previewPin();
+        resolve(loc);
+      } else {
+        showMessage("Address not found", 2500);
+        resolve(null);
+      }
+    });
+  });
+}
+
+// --- Add marker to map ---
+function addMarker(map, pin) {
+  const marker = new google.maps.Marker({
+    position: { lat: pin.lat, lng: pin.lng },
+    map,
+    title: pin.name,
+    icon: "http://maps.google.com/mapfiles/ms/icons/red-dot.png"
+  });
+
+  const infoWindow = new google.maps.InfoWindow({
+    content: `
+      <div style="line-height:1.4;">
+        <strong>Name:</strong> ${pin.name}<br>
+        <strong>What's Needed:</strong> ${pin.needed}<br>
+        <strong>Date:</strong> ${pin.date}<br>
+        <strong>Time:</strong> ${pin.time}
+      </div>
+    `
+  });
+
+  marker.addListener("click", () => infoWindow.open(map, marker));
+}
+
+// --- Preview pin before save ---
+function previewPin() {
+  if (markerPreview) markerPreview.setMap(null);
+  markerPreview = new google.maps.Marker({
+    position: tempLatLng,
+    map,
+    icon: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png"
+  });
+}
